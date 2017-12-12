@@ -4,48 +4,34 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="fi.ahonen.emilia.hanna.mobilerestaurants.MenuActivity"
-    android:paddingBottom="10dp"
-    android:paddingLeft="10dp"
-    android:paddingRight="10dp"
-    android:paddingTop="10dp">
-      <Button
-          android:id="@+id/fetchFeedButton"
-          android:layout_width="wrap_content"
+    tools:context="fi.ahonen.emilia.hanna.mobilerestaurants.MenuActivity">
+      <android.support.v7.widget.Toolbar
+          android:id="@+id/toolbar"
+          android:layout_width="fill_parent"
           android:layout_height="wrap_content"
-          android:layout_alignParentEnd="true"
-          android:text="Fetch" />
-
-      <TextView
-          android:id="@+id/feedTitle"
-          android:layout_width="match_parent"
-          android:layout_height="wrap_content"
-          android:text="Feed Title: " />
-
-      <TextView
-          android:id="@+id/feedDescription"
-          android:layout_width="match_parent"
-          android:layout_height="wrap_content"
-          android:layout_below="@id/feedTitle"
-          android:text="Feed Description: " />
-
-      <TextView
-          android:id="@+id/feedLink"
-          android:layout_width="match_parent"
-          android:layout_height="wrap_content"
-          android:layout_below="@id/feedDescription"
-          android:text="Feed Link: " />
+          android:minHeight="?attr/actionBarSize"
+          android:background="@color/colorPrimary"
+          android:theme="@style/ToolbarStyle">
+            <TextView
+                android:id="@+id/toolbarTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center" />
+      </android.support.v7.widget.Toolbar>
 
       <android.support.v4.widget.SwipeRefreshLayout
           android:id="@+id/swipeRefreshLayout"
           android:layout_width="match_parent"
           android:layout_height="match_parent"
-          android:layout_below="@id/feedLink">
-
-            <android.support.v7.widget.RecyclerView
-                android:id="@+id/recyclerView"
+          android:layout_below="@id/toolbar">
+            <TextView
+                android:id="@+id/feedData"
                 android:layout_width="match_parent"
-                android:layout_height="match_parent" />
+                android:layout_height="wrap_content"
+                android:text=""
+                android:maxLines = "3000"
+                android:scrollbars = "vertical"
+                android:padding="15dp"/>
       </android.support.v4.widget.SwipeRefreshLayout>
 </RelativeLayout>
 

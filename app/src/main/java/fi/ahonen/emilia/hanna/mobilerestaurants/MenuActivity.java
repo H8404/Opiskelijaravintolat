@@ -1,144 +1,117 @@
 package fi.ahonen.emilia.hanna.mobilerestaurants;
 
+import android.graphics.Color;
 import android.os.AsyncTask;
 import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.support.v7.widget.LinearLayoutManager;
-import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.Toolbar;
+import android.text.Html;
 import android.text.TextUtils;
+import android.text.method.ScrollingMovementMethod;
 import android.util.Log;
-import android.util.Xml;
-import android.view.View;
-import android.widget.Button;
-import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
+import org.xmlpull.v1.XmlPullParserFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
+
 
 public class MenuActivity extends AppCompatActivity {
 
     private static final String TAG = "MenuActivity";
 
-    private RecyclerView mRecyclerView;
     private SwipeRefreshLayout mSwipeLayout;
-    private TextView mFeedTitleTextView;
-    private TextView mFeedLinkTextView;
-    private TextView mFeedDescriptionTextView;
-    private Button mFetchFeedButton;
+    private TextView mFeedDataTextView;
+    Toolbar mToolbar;
+    TextView mToolbarTitle;
 
-    private List<RssFeedModel> mFeedModelList;
     private String mFeedTitle;
-    private String mFeedLink;
-    private String mFeedDescription;
+    private String mHtmlData;
+    private FetchFeedTask task;
+    private String url;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_menu);
 
-        mFetchFeedButton = (Button) findViewById(R.id.fetchFeedButton);
-        mRecyclerView = (RecyclerView) findViewById(R.id.recyclerView);
         mSwipeLayout = (SwipeRefreshLayout) findViewById(R.id.swipeRefreshLayout);
-        mFeedTitleTextView = (TextView) findViewById(R.id.feedTitle);
-        mFeedDescriptionTextView = (TextView) findViewById(R.id.feedDescription);
-        mFeedLinkTextView = (TextView) findViewById(R.id.feedLink);
+        mFeedDataTextView = (TextView) findViewById(R.id.feedData);
 
-        mRecyclerView.setLayoutManager(new LinearLayoutManager(this));
+        Bundle bundle = getIntent().getExtras();
+        this.url = bundle.getString("rssUrl");
 
-        mFetchFeedButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                new FetchFeedTask().execute((Void) null);
-            }
-        });
+        task = new FetchFeedTask();
+        task.setUrlLink(this.url);
+        task.execute((Void) null);
 
         mSwipeLayout.setOnRefreshListener(new SwipeRefreshLayout.OnRefreshListener() {
             @Override
             public void onRefresh() {
-                new FetchFeedTask().execute((Void) null);
+                task = new FetchFeedTask();
+                Bundle bundle = getIntent().getExtras();
+                String url = bundle.getString("rssUrl");
+                task.setUrlLink(url);
+                task.execute((Void) null);
             }
         });
+        mFeedDataTextView.setMovementMethod(new ScrollingMovementMethod());
+        mToolbar = (Toolbar) findViewById(R.id.toolbar);
+        mToolbarTitle = (TextView) findViewById(R.id.toolbarTitle);
+        mToolbarTitle.setTextColor(Color.WHITE);
+        mToolbarTitle.setTextSize(20);
+        setSupportActionBar(mToolbar);
+        getSupportActionBar().setDisplayShowTitleEnabled(false);
+        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+        getSupportActionBar().setDisplayShowHomeEnabled(true);
+        mToolbar.setTitleTextColor(Color.WHITE);
+        mToolbar.setSubtitleTextColor(Color.WHITE);
+
+
     }
 
-    public List<RssFeedModel> parseFeed(InputStream inputStream) throws XmlPullParserException, IOException {
-        String title = null;
-        String link = null;
-        String description = null;
-        boolean isItem = false;
-        List<RssFeedModel> items = new ArrayList<>();
-
+    public void parseFeed(InputStream inputStream) throws XmlPullParserException, IOException {
         try {
-            XmlPullParser xmlPullParser = Xml.newPullParser();
-            xmlPullParser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, false);
-            xmlPullParser.setInput(inputStream, null);
+            XmlPullParserFactory factory = XmlPullParserFactory.newInstance();
+            factory.setNamespaceAware(false);
+            XmlPullParser xpp = factory.newPullParser();
+            xpp.setInput(inputStream, null);
+            boolean insideItem = false;
+            int eventType = xpp.getEventType();
 
-            xmlPullParser.nextTag();
-            while (xmlPullParser.next() != XmlPullParser.END_DOCUMENT) {
-                int eventType = xmlPullParser.getEventType();
-
-                String name = xmlPullParser.getName();
-                if(name == null)
-                    continue;
-
-                if(eventType == XmlPullParser.END_TAG) {
-                    if(name.equalsIgnoreCase("item")) {
-                        isItem = false;
-                    }
-                    continue;
-                }
-
+            while (eventType != XmlPullParser.END_DOCUMENT) {
                 if (eventType == XmlPullParser.START_TAG) {
-                    if(name.equalsIgnoreCase("item")) {
-                        isItem = true;
-                        continue;
+
+                    if (xpp.getName().equalsIgnoreCase("item")) {
+                        insideItem = true;
+                    } else if (xpp.getName().equalsIgnoreCase("title")) {
+                        if (insideItem)
+                            mFeedTitle = xpp.nextText();
+                    } else if (xpp.getName().equalsIgnoreCase("description")) {
+                        if (insideItem) {
+                            mHtmlData = xpp.nextText();
+                        }
                     }
+                } else if (eventType == XmlPullParser.END_TAG && xpp.getName().equalsIgnoreCase("item")) {
+                    insideItem = false;
                 }
 
-                Log.d("MainActivity", "Parsing name ==> " + name);
-                String result = "";
-                if (xmlPullParser.next() == XmlPullParser.TEXT) {
-                    result = xmlPullParser.getText();
-                    xmlPullParser.nextTag();
-                }
-
-                if (name.equalsIgnoreCase("title")) {
-                    title = result;
-                } else if (name.equalsIgnoreCase("link")) {
-                    link = result;
-                } else if (name.equalsIgnoreCase("description")) {
-                    description = result;
-                }
-
-                if (title != null && link != null && description != null) {
-                    if(isItem) {
-                        RssFeedModel item = new RssFeedModel(title, link, description);
-                        items.add(item);
-                    }
-                    else {
-                        mFeedTitle = title;
-                        mFeedLink = link;
-                        mFeedDescription = description;
-                    }
-
-                    title = null;
-                    link = null;
-                    description = null;
-                    isItem = false;
-                }
+                eventType = xpp.next(); // move to next element
             }
-
-            return items;
-        } finally {
+        }catch (MalformedURLException e) {
+            e.printStackTrace();
+        } catch (XmlPullParserException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }finally {
             inputStream.close();
         }
     }
@@ -147,16 +120,14 @@ public class MenuActivity extends AppCompatActivity {
 
         private String urlLink;
 
+        public void setUrlLink(String url){
+            this.urlLink = url;
+        }
+
         @Override
         protected void onPreExecute() {
             mSwipeLayout.setRefreshing(true);
             mFeedTitle = null;
-            mFeedLink = null;
-            mFeedDescription = null;
-            mFeedTitleTextView.setText("Feed Title: " + mFeedTitle);
-            mFeedDescriptionTextView.setText("Feed Description: " + mFeedDescription);
-            mFeedLinkTextView.setText("Feed Link: " + mFeedLink);
-            urlLink = "https://www.sodexo.fi/ruokalistat/rss/weekly_rss/5868/fi";
         }
 
         @Override
@@ -170,7 +141,7 @@ public class MenuActivity extends AppCompatActivity {
 
                 URL url = new URL(urlLink);
                 InputStream inputStream = url.openConnection().getInputStream();
-                mFeedModelList = parseFeed(inputStream);
+                parseFeed(inputStream);
                 return true;
             } catch (IOException e) {
                 Log.e(TAG, "Error", e);
@@ -185,11 +156,8 @@ public class MenuActivity extends AppCompatActivity {
             mSwipeLayout.setRefreshing(false);
 
             if (success) {
-                mFeedTitleTextView.setText("Feed Title: " + mFeedTitle);
-                mFeedDescriptionTextView.setText("Feed Description: " + mFeedDescription);
-                mFeedLinkTextView.setText("Feed Link: " + mFeedLink);
-                // Fill RecyclerView
-                mRecyclerView.setAdapter(new RssFeedListAdapter(mFeedModelList));
+                mToolbarTitle.setText(mFeedTitle);
+                mFeedDataTextView.setText(Html.fromHtml(mHtmlData));
             } else {
                 Toast.makeText(MenuActivity.this,
                         "Enter a valid Rss feed url",

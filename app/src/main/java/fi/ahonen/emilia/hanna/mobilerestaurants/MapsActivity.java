@@ -1,11 +1,18 @@
 package fi.ahonen.emilia.hanna.mobilerestaurants;
 
 import android.content.Intent;
+import android.graphics.Color;
+import android.location.Location;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
+import android.support.v7.app.ActionBarActivity;
+import android.support.v7.app.AppCompatActivity;
+import android.support.v7.widget.Toolbar;
 import android.util.Log;
+import android.widget.TextView;
 
+import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
@@ -27,11 +34,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 
-public class MapsActivity extends FragmentActivity implements OnMapReadyCallback {
+public class MapsActivity extends AppCompatActivity implements OnMapReadyCallback {
 
     private GoogleMap mMap;
-    private JSONArray otto;
+    private JSONArray r;
     private List<StudentRestaurant> restaurants = new ArrayList<>();
+    private TextView mToolbarTitle;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,7 +48,13 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
         mapFragment.getMapAsync(this);
+
+        mToolbarTitle =(TextView)findViewById(R.id.toolbarTitle);
+        mToolbarTitle.setTextColor(Color.WHITE);
+        mToolbarTitle.setTextSize(20);
+        mToolbarTitle.setText(R.string.title_activity_maps);
     }
+
 
     @Override
     public void onMapReady(GoogleMap googleMap) {
@@ -52,15 +66,18 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         mMap.setOnMarkerClickListener(new GoogleMap.OnMarkerClickListener() {
             @Override
             public boolean onMarkerClick(Marker arg0) {
-               /* Context context = getApplicationContext();
-                CharSequence text = "Otto automaatti";
-                int duration = Toast.LENGTH_SHORT;
-                Toast toast = Toast.makeText(context, text, duration);
-                toast.show();
-                return true;*/
-                Intent menuIntent = new Intent(MapsActivity.this, MenuActivity.class);
-                startActivity(menuIntent);
+                arg0.showInfoWindow();
                 return true;
+            }
+        });
+        mMap.setOnInfoWindowClickListener(new  GoogleMap.OnInfoWindowClickListener() {
+            @Override
+            public void onInfoWindowClick(Marker marker) {
+                Intent menuIntent = new Intent(MapsActivity.this, MenuActivity.class);
+                Bundle bundle = new Bundle();
+                bundle.putString("rssUrl", marker.getTag().toString());
+                menuIntent.putExtras(bundle);
+                startActivity(menuIntent);
             }
         });
     }
@@ -94,12 +111,10 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
         protected void onPostExecute(JSONObject json) {
             StringBuffer text = new StringBuffer("");
             try {
-                otto = json.getJSONArray("studentRestaurants");
-                //JsonElement ele = new JsonParser().parse(json);
-                for (int i=0;i < otto.length();i++) {
-                    JSONObject hs = otto.getJSONObject(i);
-                    //text.append(hs.getString("adress")+":"+hs.getString("lat")+"\n");
-                    StudentRestaurant restaurant = new StudentRestaurant(hs.getString("adress"),hs.getDouble("lat"),hs.getDouble("lon"));
+                r = json.getJSONArray("studentRestaurants");
+                for (int i=0;i < r.length();i++) {
+                    JSONObject rObject = r.getJSONObject(i);
+                    StudentRestaurant restaurant = new StudentRestaurant(rObject.getString("name"),rObject.getString("adress"),rObject.getDouble("lat"),rObject.getDouble("lon"), rObject.getString("rssUrl"));
                     restaurants.add(restaurant);
                 }
             } catch (JSONException e) {
@@ -108,7 +123,8 @@ public class MapsActivity extends FragmentActivity implements OnMapReadyCallback
                 if (!restaurants.isEmpty()) {
                     for (StudentRestaurant r : restaurants) {
                         LatLng position = new LatLng(r.getLat(), r.getLon());
-                        mMap.addMarker(new MarkerOptions().position(position).title(r.getAddress()));
+                        Marker marker = mMap.addMarker(new MarkerOptions().position(position).title(r.getName()));
+                        marker.setTag(r.getUrl());
                     }
                 }
             }
